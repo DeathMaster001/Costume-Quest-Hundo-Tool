@@ -2,98 +2,192 @@
 import os
 import tkinter as tk
 from tkinter import ttk
-from constants import CHARACTER_NAMES, COSTUME_NAMES, BATTLE_STAMP_NAMES, CARD_NAMES, QUEST_NAMES, XP_THRESHOLDS, LEVELS
+from constants import (
+    COSTUME_NAMES,
+    BATTLE_STAMP_NAMES,
+    CARD_NAMES,
+    QUEST_NAMES,
+    LEVELS
+)
 
-# Create a reusable function to generate checkbox grids for things like stamps, cards, quests etc.
-def create_checkbox_grid(tab, items, items_per_col, num_cols):
-    columns = []
+# ----------------------------
+# progress calculation
+# ----------------------------
 
-    for c in range(num_cols):
-        frame = tk.Frame(tab)
-        frame.pack(side="left", anchor="n", padx=10)
-        columns.append(frame)
+def calc_progress(vars_list):
+    done = sum(v.get() for v in vars_list)
+    total = len(vars_list)
+    pct = (done / total * 100) if total else 0
+    return done, total, pct
+
+
+def update_progress(parent, stamp, card, quest, costume, level):
+    s_done, s_total, s_pct = calc_progress(stamp)
+    c_done, c_total, c_pct = calc_progress(card)
+    q_done, q_total, q_pct = calc_progress(quest)
+    co_done, co_total, co_pct = calc_progress(costume)
+    l_done, l_total, l_pct = calc_progress(level)
+
+    all_vars = stamp + card + quest + costume + level
+    t_done, t_total, t_pct = calc_progress(all_vars)
+
+    # update bars
+    stamp_bar["value"] = s_pct
+    card_bar["value"] = c_pct
+    quest_bar["value"] = q_pct
+    costume_bar["value"] = co_pct
+    level_bar["value"] = l_pct
+    progress_bar["value"] = t_pct
+
+    # update text
+    progress_label.config(text=f"Overall {t_done}/{t_total} ({t_pct:.1f}%)")
+    stamp_label.config(text=f"{s_done}/{s_total} ({s_pct:.1f}%)")
+    card_label.config(text=f"{c_done}/{c_total} ({c_pct:.1f}%)")
+    quest_label.config(text=f"{q_done}/{q_total} ({q_pct:.1f}%)")
+    costume_label.config(text=f"{co_done}/{co_total} ({co_pct:.1f}%)")
+    level_label.config(text=f"{l_done}/{l_total} ({l_pct:.1f}%)")
+
+    parent.after(300, lambda: update_progress(parent, stamp, card, quest, costume, level))
+
+
+# ----------------------------
+# checkbox helper
+# ----------------------------
+
+def make_checklist(tab, items, per_col, cols):
+    frames = []
+    vars_list = []
+
+    for _ in range(cols):
+        f = tk.Frame(tab)
+        f.pack(side="left", anchor="n", padx=10)
+        frames.append(f)
 
     for i, name in enumerate(items):
-        col = i // items_per_col
-        if col >= num_cols:
+        col = i // per_col
+        if col >= cols:
             break
 
-        cb = tk.Checkbutton(columns[col], text=name)
-        cb.pack(anchor="w")
+        v = tk.BooleanVar()
+        vars_list.append(v)
 
-# tab creation functions
-def create_summary_tab(tab):
-    label = tk.Label(tab, text="100% Requirements:" \
-    "\n\nCollect all 11 Costumes." \
-    "\n\nCollect all 24 Battle Stamps." \
-    "\n\nCollect all 54 Creepy Treat Cards." \
-    "\n\nComplete all required and optional quests." \
-    "\n\nAchieve the maximum level (Level 10)")
-    label.pack(padx=20, pady=20)
+        tk.Checkbutton(frames[col], text=name, variable=v).pack(anchor="w")
 
-def create_battle_stamps_tab(tab):
-    create_checkbox_grid(tab, BATTLE_STAMP_NAMES, 8, 3)
+    return vars_list
 
-def create_costumes_tab(tab):
-    create_checkbox_grid(tab, COSTUME_NAMES, 3, 4)
 
-def create_cards_tab(tab):
-    create_checkbox_grid(tab, CARD_NAMES, 9, 4)
+# ----------------------------
+# summary UI
+# ----------------------------
 
-def create_level_tab(tab):
-    for level in LEVELS:
-        checklist = tk.Checkbutton(tab, text=f"Level {level}")
-        checklist.pack(anchor="w", padx=10)
+def create_summary(tab):
+    global progress_bar, progress_label
+    global stamp_bar, card_bar, quest_bar, costume_bar, level_bar
+    global stamp_label, card_label, quest_label, costume_label, level_label
 
-def create_quests_tab(tab):
-    create_checkbox_grid(tab, QUEST_NAMES, 9, 4)
+    # overall row
+    row = tk.Frame(tab)
+    row.pack(fill="x", padx=10, pady=6)
+
+    tk.Label(row, text="Overall Progress", width=20, anchor="w").pack(side="left")
+
+    progress_bar = ttk.Progressbar(row, mode="determinate")
+    progress_bar.pack(side="left", fill="x", expand=True, padx=10)
+
+    progress_label = tk.Label(row, width=18, anchor="e")
+    progress_label.pack(side="right")
+
+    def make_row(name):
+        r = tk.Frame(tab)
+        r.pack(fill="x", padx=10, pady=3)
+
+        tk.Label(r, text=name, width=20, anchor="w").pack(side="left")
+
+        bar = ttk.Progressbar(r, mode="determinate")
+        bar.pack(side="left", fill="x", expand=True, padx=10)
+
+        lbl = tk.Label(r, width=18, anchor="e")
+        lbl.pack(side="right")
+
+        return bar, lbl
+
+    stamp_bar, stamp_label = make_row("Battle Stamps")
+    card_bar, card_label = make_row("Creepy Treat Cards")
+    quest_bar, quest_label = make_row("Quests")
+    costume_bar, costume_label = make_row("Costumes")
+    level_bar, level_label = make_row("Levels")
+
+
+# ----------------------------
+# tabs
+# ----------------------------
+
+def create_stamps(tab):
+    return make_checklist(tab, BATTLE_STAMP_NAMES, 8, 3)
+
+def create_costumes(tab):
+    return make_checklist(tab, COSTUME_NAMES, 3, 4)
+
+def create_cards(tab):
+    return make_checklist(tab, CARD_NAMES, 9, 4)
+
+def create_quests(tab):
+    return make_checklist(tab, QUEST_NAMES, 9, 4)
+
+def create_levels(tab):
+    vars_list = []
+    for lv in LEVELS:
+        v = tk.BooleanVar()
+        tk.Checkbutton(tab, text=f"Level {lv}", variable=v).pack(anchor="w", padx=10)
+        vars_list.append(v)
+    return vars_list
+
+
+# ----------------------------
+# main
+# ----------------------------
 
 def main():
-    # Create main window
-    parent = tk.Tk()
-    parent.title("Costume Quest 100% Tracker")
-    parent.geometry("800x400")
-    parent.minsize(800, 400)
+    root = tk.Tk()
+    root.title("Costume Quest Tracker")
+    root.geometry("800x725")
+    root.minsize(800, 725)
 
-    # Create notebook
-    notebook = ttk.Notebook(parent)
+    notebook = ttk.Notebook(root)
 
-    # Create tabs
-    tab_summary = ttk.Frame(notebook)
-    tab_stamps = ttk.Frame(notebook)
-    tab_costumes = ttk.Frame(notebook)
-    tab_cards = ttk.Frame(notebook)
-    tab_level = ttk.Frame(notebook)
-    tab_quests = ttk.Frame(notebook)
+    t1 = ttk.Frame(notebook)
+    t2 = ttk.Frame(notebook)
+    t3 = ttk.Frame(notebook)
+    t4 = ttk.Frame(notebook)
+    t5 = ttk.Frame(notebook)
+    t6 = ttk.Frame(notebook)
 
-    # Add tabs to notebook
-    notebook.add(tab_summary, text="Summary")
-    notebook.add(tab_stamps, text="Battle Stamps")
-    notebook.add(tab_costumes, text="Costumes")
-    notebook.add(tab_cards, text="Creepy Treat Cards")
-    notebook.add(tab_level, text="Level")
-    notebook.add(tab_quests, text="Quests")
+    notebook.add(t1, text="Summary")
+    notebook.add(t2, text="Stamps")
+    notebook.add(t3, text="Costumes")
+    notebook.add(t4, text="Cards")
+    notebook.add(t5, text="Levels")
+    notebook.add(t6, text="Quests")
 
-    # Create content for each tab
-    create_summary_tab(tab_summary)
-    create_battle_stamps_tab(tab_stamps)
-    create_costumes_tab(tab_costumes)
-    create_cards_tab(tab_cards)
-    create_level_tab(tab_level)
-    create_quests_tab(tab_quests)
+    create_summary(t1)
 
-    notebook.pack(padx=10, pady=10, fill="both", expand=True)
+    stamps = create_stamps(t2)
+    costumes = create_costumes(t3)
+    cards = create_cards(t4)
+    levels = create_levels(t5)
+    quests = create_quests(t6)
 
-    # set icon if available
-    import constants
-    icon_path = os.path.join(constants.BASE_DIR, "icon.ico")
-    if os.path.exists(icon_path):
-        try:
-            parent.iconbitmap(icon_path)
-        except Exception:
-            pass
+    notebook.pack(fill="both", expand=True, padx=10, pady=10)
 
-    parent.mainloop()
+    # icon
+    icon = os.path.join(os.getcwd(), "icon.ico")
+    if os.path.exists(icon):
+        root.iconbitmap(icon)
+
+    update_progress(root, stamps, cards, quests, costumes, levels)
+
+    root.mainloop()
+
 
 if __name__ == "__main__":
     main()
