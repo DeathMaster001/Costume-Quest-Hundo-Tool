@@ -1,177 +1,8 @@
-# imports
 import os
 import tkinter as tk
 from tkinter import ttk
-from constants import (
-    BATTLE_STAMP_NAMES,
-    COSTUME_NAMES,
-    CARD_NAMES,
-    QUEST_NAMES,
-)
-
-# ----------------------------
-# progress calculation
-# ----------------------------
-
-def calc_progress(vars_list):
-    done = sum(v.get() for v in vars_list)
-    total = len(vars_list)
-    pct = (done / total * 100) if total else 0
-    return done, total, pct
-
-def summarize_missing(groups):
-    parts = []
-
-    for name, vars_list in groups.items():
-        missing = sum(not v.get() for v in vars_list)
-
-        if missing > 0:
-            if name == "Level 10":
-                parts.append("Level 10")
-            else:
-                parts.append(f"{missing} {name}")
-
-    if not parts:
-        return "Everything completed 🎉"
-
-    return "Missing: " + ", ".join(parts)
-
-def update_progress(parent, stamp, costume, card, quest, level):
-    categories = {
-        "Stamps": stamp,
-        "Costumes": costume,
-        "Cards": card,
-        "Quests": quest,
-        "Level 10": level
-    }
-
-    ui_map = {
-        "Stamps": (stamp_bar, stamp_label),
-        "Costumes": (costume_bar, costume_label),
-        "Cards": (card_bar, card_label),
-        "Quests": (quest_bar, quest_label),
-        "Level 10": (level_bar, level_label),
-    }
-
-    total_done = total_items = 0
-
-    for name, vars_list in categories.items():
-        done, total, pct = calc_progress(vars_list)
-        total_done += done
-        total_items += total
-
-        bar, label = ui_map[name]
-        bar["value"] = pct
-        label.config(text=f"{done}/{total} ({pct:.1f}%)")
-
-    overall_pct = (total_done / total_items * 100) if total_items else 0
-
-    progress_bar["value"] = overall_pct
-    progress_label.config(text=f"{total_done}/{total_items} ({overall_pct:.1f}%)")
-
-    missing_summary_label.config(text=summarize_missing(categories))
-
-    parent.after(300, lambda: update_progress(parent, stamp, costume, card, quest, level))
-
-
-# ----------------------------
-# checkbox helper
-# ----------------------------
-
-def make_checklist(tab, items, per_col, cols):
-    frames = []
-    vars_list = []
-
-    for _ in range(cols):
-        f = tk.Frame(tab)
-        f.pack(side="left", anchor="n", padx=10)
-        frames.append(f)
-
-    for i, name in enumerate(items):
-        col = i // per_col
-        if col >= cols:
-            break
-
-        v = tk.BooleanVar()
-        vars_list.append(v)
-
-        tk.Checkbutton(frames[col], text=name, variable=v).pack(anchor="w")
-
-    return vars_list
-
-
-# ----------------------------
-# summary UI
-# ----------------------------
-
-def create_summary(tab):
-    global progress_bar, progress_label
-    global stamp_bar, card_bar, quest_bar, costume_bar, level_bar
-    global stamp_label, card_label, quest_label, costume_label, level_label, missing_summary_label
-
-    # overall row
-    row = tk.Frame(tab)
-    row.pack(fill="x", padx=10, pady=6)
-
-    tk.Label(row, text="Overall Progress", width=20, anchor="w").pack(side="left")
-
-    progress_bar = ttk.Progressbar(row, mode="determinate")
-    progress_bar.pack(side="left", fill="x", expand=True, padx=10)
-
-    progress_label = tk.Label(row, width=18, anchor="e")
-    progress_label.pack(side="right")
-
-    def make_row(name):
-        r = tk.Frame(tab)
-        r.pack(fill="x", padx=10, pady=3)
-
-        tk.Label(r, text=name, width=20, anchor="w").pack(side="left")
-
-        bar = ttk.Progressbar(r, mode="determinate")
-        bar.pack(side="left", fill="x", expand=True, padx=10)
-
-        lbl = tk.Label(r, width=18, anchor="e")
-        lbl.pack(side="right")
-
-        return bar, lbl
-
-    stamp_bar, stamp_label = make_row("Battle Stamps")
-    costume_bar, costume_label = make_row("Costumes")
-    card_bar, card_label = make_row("Creepy Treat Cards")
-    quest_bar, quest_label = make_row("Quests")
-    level_bar, level_label = make_row("Level 10")
-
-    missing_summary_label = tk.Label(tab, text="", anchor="w", justify="left")
-    missing_summary_label.pack(fill="x", padx=10, pady=10)
-
-
-# ----------------------------
-# tabs
-# ----------------------------
-
-def create_stamps(tab):
-    return make_checklist(tab, BATTLE_STAMP_NAMES, 8, 3)
-
-def create_costumes(tab):
-    return make_checklist(tab, COSTUME_NAMES, 3, 4)
-
-def create_cards(tab):
-    return make_checklist(tab, CARD_NAMES, 9, 4)
-
-def create_quests(tab):
-    return make_checklist(tab, QUEST_NAMES, 9, 4)
-
-def create_levels(tab):
-    level10_var = tk.BooleanVar()
-
-    tk.Checkbutton(tab, text="Level 10", variable=level10_var).pack(anchor="w", padx=10)
-
-    return [level10_var]
-
-
-# ----------------------------
-# main
-# ----------------------------
+from ui import (create_summary, create_stamps, create_costumes, create_cards, create_quests,create_levels)
+from logic import calc_progress, summarize_missing
 
 def main():
     root = tk.Tk()
@@ -195,14 +26,57 @@ def main():
     notebook.add(t5, text="Quests")
     notebook.add(t6, text="Level")
 
-    create_summary(t1)
+    notebook.pack(fill="both", expand=True, padx=10, pady=10)
+
+    ui = create_summary(t1)
     stamps = create_stamps(t2)
     costumes = create_costumes(t3)
     cards = create_cards(t4)
     quests = create_quests(t5)
     levels = create_levels(t6)
 
-    notebook.pack(fill="both", expand=True, padx=10, pady=10)
+    categories = {
+        "Stamps": stamps,
+        "Costumes": costumes,
+        "Cards": cards,
+        "Quests": quests,
+        "Level 10": levels,
+    }
+
+    def update():
+        ui_map = {
+            "Stamps": (ui["stamp_bar"], ui["stamp_label"]),
+            "Costumes": (ui["costume_bar"], ui["costume_label"]),
+            "Cards": (ui["card_bar"], ui["card_label"]),
+            "Quests": (ui["quest_bar"], ui["quest_label"]),
+            "Level 10": (ui["level_bar"], ui["level_label"]),
+        }
+
+        total_done = total_items = 0
+
+        for name, vars_list in categories.items():
+            done, total, pct = calc_progress(vars_list)
+            total_done += done
+            total_items += total
+
+            bar, label = ui_map[name]
+            bar["value"] = pct
+            label.config(text=f"{done}/{total} ({pct:.1f}%)")
+
+        overall = (total_done / total_items * 100) if total_items else 0
+
+        ui["progress_bar"]["value"] = overall
+        ui["progress_label"].config(
+            text=f"{total_done}/{total_items} ({overall:.1f}%)"
+        )
+
+        ui["missing_summary_label"].config(
+            text=summarize_missing(categories)
+        )
+
+        root.after(300, update)
+
+    update()
 
     # set icon if available
     import constants
@@ -212,8 +86,6 @@ def main():
             root.iconbitmap(icon_path)
         except Exception:
             pass
-
-    update_progress(root, stamps, costumes, cards, quests, levels)
 
     root.mainloop()
 
