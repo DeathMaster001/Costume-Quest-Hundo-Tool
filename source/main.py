@@ -6,7 +6,7 @@ from logic import calc_progress, summarize_missing
 
 def main():
     root = tk.Tk()
-    root.title("Costume Quest Tracker")
+    root.title("Costume Quest Hundo Tracker")
     root.geometry("800x300")
     root.minsize(800, 300)
 
